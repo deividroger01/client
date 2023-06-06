@@ -72,7 +72,9 @@ export default function Day({ day, rowIdx }) {
   }, [filteredEvents, day]);
 
   function validateDay(day) {
-    const nowDay = dayjs().locale("pt-br").format("MMDDYY");
+    const nowDay = dayjs()
+      .locale("pt-br")
+      .format("MMDDYY");
     const currDay = day.locale("pt-br").format("MMDDYY");
 
     if (currDay < nowDay) {
@@ -86,7 +88,9 @@ export default function Day({ day, rowIdx }) {
 
   function getCurrentDayClass() {
     return day.locale("pt-br").format("DD-MM-YY") ===
-      dayjs().locale("pt-br").format("DD-MM-YY")
+      dayjs()
+        .locale("pt-br")
+        .format("DD-MM-YY")
       ? "bg-greensas text-white rounded-full w-7"
       : "";
   }
@@ -110,7 +114,10 @@ export default function Day({ day, rowIdx }) {
       <header className="flex flex-col items-center">
         {(isSmallScreen ? rowIdx >= 0 : rowIdx === 0) && (
           <p className="text-xs mt-1 font-semibold">
-            {day.locale("pt-br").format("ddd").toUpperCase()}
+            {day
+              .locale("pt-br")
+              .format("ddd")
+              .toUpperCase()}
           </p>
         )}
         <p
@@ -134,25 +141,31 @@ export default function Day({ day, rowIdx }) {
       >
         {eventsLoaded ? (
           <>
-            {dayEvents
-              .filter((evt) => {
-                const eventDate = dayjs(evt.startTime)
-                  .locale("pt-br")
-                  .format("MMDDYY");
-                const currentDay = day.locale("pt-br").format("MMDDYY");
-                return eventDate === currentDay;
-              })
-              .sort((a, b) => a.sTime.localeCompare(b.sTime))
-              .map((evt) => (
-                <div
-                  key={evt._id}
-                  onClick={() => setSelectedEvent(evt)}
-                  className={`bg-green-200 px-2 py-1 my-1 text-gray-600 text-xs rounded truncate`}
-                >
-                  {evt.sHourTime}h{evt.sMinuteTime}: {evt.clientName} |{" "}
-                  {evt.serviceName}
-                </div>
-              ))}
+            {dayEvents.length > 0
+              ? dayEvents
+                  .filter((evt) => {
+                    const eventDate = dayjs(evt.startTime)
+                      .locale("pt-br")
+                      .format("MMDDYY");
+                    const currentDay = day.locale("pt-br").format("MMDDYY");
+                    return eventDate === currentDay;
+                  })
+                  .sort((a, b) => a.sTime.localeCompare(b.sTime))
+                  .map((evt) => (
+                    <div
+                      key={evt._id}
+                      onClick={() => setSelectedEvent(evt)}
+                      className={`bg-green-200 px-2 py-1 my-1 text-gray-600 text-xs rounded truncate`}
+                    >
+                      {evt.sHourTime}h{evt.sMinuteTime}: {evt.clientName} |{" "}
+                      {evt.serviceName}
+                    </div>
+                  ))
+              : dayjs(day).isAfter(dayjs(), "day") && (
+                  <span className="material-icons-outlined cursor-pointer text-green-600 mx-1 flex items-center justify-center">
+                    add
+                  </span>
+                )}
           </>
         ) : (
           <div className="text-gray-600 text-sm">Carregando eventos...</div>

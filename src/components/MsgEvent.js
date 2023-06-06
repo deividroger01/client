@@ -2,12 +2,15 @@ import React, { useContext } from "react";
 import GlobalContext from "../context/GlobalContext";
 
 export default function MsgEvent() {
-  const { isMsgEvent, setIsMsgEvent, setShowEventModal } =
-    useContext(GlobalContext);
+  const { isMsgEvent, setIsMsgEvent, setShowEventsModal } = useContext(
+    GlobalContext
+  );
 
   const setIsModalOpen = () => {
     setIsMsgEvent(null);
-    setShowEventModal(true);
+    setTimeout(() => {
+      setShowEventsModal(true);
+    }, 2000);
   };
 
   if (isMsgEvent) {

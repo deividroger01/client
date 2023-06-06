@@ -34,12 +34,70 @@ export default function EditEventModal() {
   const [durantionSelectedService, setDurantionSelectedService] = useState("");
 
   const [availableTimes, setAvailableTimes] = useState([]);
+  const [dMin, setDMin] = useState();
+  const [dMax, setDMax] = useState();
 
   /* Verificar useState dos serviços*/
 
   const setIsModalOpen = () => {
     setShowEditEventModal(null);
     setShowEventsModal(true);
+  };
+
+  /** Serviços */
+
+  /**Horários disponíveis */
+
+  const getBusyTimes = async (tMin, tMax) => {
+    try {
+      console.log(tMin, tMax);
+      const response = await backendconn.post("event/freebusy", {
+        timeMin: tMin,
+        timeMax: tMax,
+      });
+      return response.data.response;
+    } catch (error) {
+      console.error("Erro ao obter horários ocupados:", error);
+      return [];
+    }
+  };
+
+  const filterAvailableTimes = (occupiedTimes) => {
+    const availableTimes = [];
+    const initTime = daySelected
+      .startOf("day")
+      .hour(0)
+      .minute(0)
+      .second(0);
+    const finishTime = daySelected
+      .startOf("day")
+      .hour(23)
+      .minute(59)
+      .second(59);
+
+    let currentTime = initTime;
+
+    const isTimeOccupied = (occupiedTime) => {
+      const start = dayjs(occupiedTime.start);
+      const end = dayjs(occupiedTime.end);
+      return (
+        currentTime.isSame(start) ||
+        (currentTime.isAfter(start) && currentTime.isBefore(end))
+      );
+    };
+
+    while (currentTime.isBefore(finishTime)) {
+      const time = currentTime.format("HH:mm");
+      const occupied = occupiedTimes.some(isTimeOccupied);
+
+      if (!occupied) {
+        availableTimes.push(time);
+      }
+
+      currentTime = currentTime.add(15, "minute");
+    }
+
+    return availableTimes;
   };
 
   useEffect(() => {
@@ -66,18 +124,23 @@ export default function EditEventModal() {
     if (showEditEventModal) {
       backendconn.get("/scheduling/" + showEditEventModal).then((response) => {
         let resStartTime = dayjs(response.data.startTime);
+        const date = new Date(response.data.startTime);
+
         const sTime = resStartTime.format("HH:mm");
         const eDate = resStartTime
           .locale("pt-br")
           .format("dddd, DD [de] MMMM [de] YYYY");
         const evtDate = resStartTime;
+        const dMin = evtDate.startOf("day").toDate();
+        const dMax = evtDate.endOf("day").toDate();
 
         // Encontrando o serviço correspondente ao serviceId
         const serviceId = response.data.serviceId;
         const selectedService = services.find(
           (service) => service._id === serviceId
         );
-
+        setDMin(dMin);
+        setDMax(dMax);
         // Verificando se o serviço foi encontrado
         if (selectedService) {
           const servName = selectedService.name;
@@ -101,6 +164,9 @@ export default function EditEventModal() {
             serviceInfo: servName,
             servId: servId,
             evtDate: evtDate,
+            date: date,
+            dMin: dMin,
+            dMax: dMax,
           };
           console.log("updatedEventData: ", updatedEventData);
           setEvents(updatedEventData);
@@ -114,78 +180,29 @@ export default function EditEventModal() {
           setServiceId(servId);
         }
       });
+
+      // pegar horários disponíveis >>>>>>>>>>> CORRIGIR AQUI <<<<<<<<<<<<<<<<<<<<
+      const loadAvailableTimes = async () => {
+        const formatedEventDate = dayjs(events.date);
+
+        // Define tMin e tMax usando a data do evento
+        const tMin = dMin;
+        const tMax = dMax;
+
+        const occupiedTimes = await getBusyTimes(tMin, tMax);
+        const filteredTimes = filterAvailableTimes(occupiedTimes);
+        setAvailableTimes(filteredTimes);
+      };
+
+      loadAvailableTimes();
     }
   }, [showEditEventModal, services]);
 
-  /** Serviços */
-
-  /**Horários disponíveis */
-
-  const getBusyTimes = async (tMin, tMax) => {
-    try {
-      console.log(tMin, tMax);
-      const response = await backendconn.post("event/freebusy", {
-        timeMin: tMin,
-        timeMax: tMax,
-      });
-      return response.data.response;
-    } catch (error) {
-      console.error("Erro ao obter horários ocupados:", error);
-      return [];
-    }
-  };
-
-  // pegar horários disponíveis >>>>>>>>>>> CORRIGIR AQUI <<<<<<<<<<<<<<<<<<<<
-  const loadAvailableTimes = async () => {
-    const formatedEventDate = dayjs(eventDate);
-    const tMin = formatedEventDate.format("YYYY-MM-DD[T00:00:00-03:00]");
-    const tMax = formatedEventDate
-      .add(1, "day")
-      .format("YYYY-MM-DD[T00:00:00-03:00]");
-    const occupiedTimes = await getBusyTimes(tMin, tMax);
-    const filteredTimes = filterAvailableTimes(occupiedTimes);
-    setAvailableTimes(filteredTimes);
-  };
-
-  useEffect(() => {
+  /*useEffect(() => {
     if (showEditEventModal) {
       loadAvailableTimes();
     }
-  }, [showEditEventModal]);
-
-  const filterAvailableTimes = (occupiedTimes) => {
-    const availableTimes = [];
-    const initTime = daySelected.startOf("day").hour(0).minute(0).second(0);
-    const finishTime = daySelected
-      .startOf("day")
-      .hour(23)
-      .minute(59)
-      .second(59);
-
-    let currentTime = initTime;
-
-    const isTimeOccupied = (occupiedTime) => {
-      const start = dayjs(occupiedTime.start);
-      const end = dayjs(occupiedTime.end);
-      return (
-        currentTime.isSame(start) ||
-        (currentTime.isAfter(start) && currentTime.isBefore(end))
-      );
-    };
-
-    while (currentTime.isBefore(finishTime)) {
-      const time = currentTime.format("HH:mm");
-      const occupied = occupiedTimes.some(isTimeOccupied);
-
-      if (!occupied) {
-        availableTimes.push(time);
-      }
-
-      currentTime = currentTime.add(30, "minute");
-    }
-
-    return availableTimes;
-  };
+  }, [showEditEventModal]);*/
 
   const handleServiceChange = (e) => {
     e.preventDefault();
@@ -290,7 +307,7 @@ export default function EditEventModal() {
         clientPhone: clientPhone,
         clientEmail: clientEmail,
       })
-      .then(function (response) {
+      .then(function(response) {
         // handle success
         const idEventCreated = response.data.response;
 
@@ -304,29 +321,25 @@ export default function EditEventModal() {
             clientPhone: clientPhone,
             clientEmail: clientEmail,
           })
-          .then(function (response) {
+          .then(function(response) {
             //OK
           })
-          .catch(function (error) {
+          .catch(function(error) {
             // Se erro
             console.log(error);
           });
 
         setIsMsgEvent([response.data]);
-        setTimeout(() => {
-          setIsModalOpen();
-        }, 5000);
       })
-      .catch(function (error) {
+      .catch(function(error) {
         // handle error
         setIsMsgEvent([error.response.data]);
-        setTimeout(() => {
-          setIsModalOpen(null);
-        }, 3000);
         console.log(error);
       });
+    setTimeout(() => {
+      setIsModalOpen(null);
+    }, 3000);
 
-    setIsModalOpen();
     return;
   }
 

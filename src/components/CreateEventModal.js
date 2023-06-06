@@ -4,8 +4,12 @@ import backendconn from "../api/api";
 import dayjs from "dayjs";
 
 export default function CreateEventModal() {
-  const { setIsMsgEvent, showEventModal, setShowEventModal, daySelected } =
-    useContext(GlobalContext);
+  const {
+    setIsMsgEvent,
+    showEventModal,
+    setShowEventModal,
+    daySelected,
+  } = useContext(GlobalContext);
 
   const [serviceInfo, setServiceInfo] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -78,7 +82,11 @@ export default function CreateEventModal() {
 
   const filterAvailableTimes = (occupiedTimes) => {
     const availableTimes = [];
-    const initTime = daySelected.startOf("day").hour(0).minute(0).second(0);
+    const initTime = daySelected
+      .startOf("day")
+      .hour(0)
+      .minute(0)
+      .second(0);
     const finishTime = daySelected
       .startOf("day")
       .hour(23)
@@ -179,7 +187,7 @@ export default function CreateEventModal() {
           clientPhone: clientPhone,
           clientEmail: clientEmail,
         })
-        .then(function (response) {
+        .then(function(response) {
           // handle success
           const idEventCreated = response.data.response;
 
@@ -193,10 +201,10 @@ export default function CreateEventModal() {
               clientPhone: clientPhone,
               clientEmail: clientEmail,
             })
-            .then(function (response) {
+            .then(function(response) {
               //OK
             })
-            .catch(function (error) {
+            .catch(function(error) {
               // Se erro
               console.log(error);
             });
@@ -204,7 +212,7 @@ export default function CreateEventModal() {
           setIsMsgEvent([response.data]);
           setIsModalOpen();
         })
-        .catch(function (error) {
+        .catch(function(error) {
           // handle error
           setIsMsgEvent([error.response.data]);
           setIsModalOpen(null);

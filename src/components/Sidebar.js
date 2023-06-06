@@ -1,5 +1,4 @@
 import React, { useState, useContext, useEffect } from "react";
-import CreateEventButton from "./CreateEventButton";
 import SmallCalendar from "./SmallCalendar";
 import ServicesButton from "./ServicesButton";
 import LogoutButton from "./LogoutButton";
@@ -19,7 +18,6 @@ export default function Sidebar(userDetails) {
 
   return (
     <aside className="border p-2 sm:w-64 sm:flex-shrink-0 flex flex-col items-center">
-      <CreateEventButton />
       <EventsButton />
       <ServicesButton user={user} />
       <ReportButton />
