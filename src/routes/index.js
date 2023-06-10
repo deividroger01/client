@@ -12,14 +12,13 @@ function RoutesApp() {
     try {
       const url = `${process.env.REACT_APP_API_URL}/login/success`;
       const { data } = await axios.get(url, {
+        "Content-Type": "application/json",
         timeout: 20000,
         withCredentials: true,
       });
       setUser(data.user);
-      console.log(("user:", user));
     } catch (error) {
       console.log(error);
-      console.log(("user:", user));
     }
   };
 
