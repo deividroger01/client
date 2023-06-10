@@ -19,6 +19,7 @@ function RoutesApp() {
       console.log(("user:", user));
     } catch (error) {
       console.log(error);
+      console.log(("user:", user));
     }
   };
 
