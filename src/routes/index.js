@@ -11,7 +11,10 @@ function RoutesApp() {
   const getUser = async () => {
     try {
       const url = `${process.env.REACT_APP_API_URL}/login/success`;
-      const { data } = await axios.get(url, { withCredentials: true });
+      const { data } = await axios.get(url, {
+        timeout: 20000,
+        withCredentials: true,
+      });
       setUser(data.user);
     } catch (error) {
       console.log(error);
