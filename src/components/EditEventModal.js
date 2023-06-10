@@ -50,12 +50,18 @@ export default function EditEventModal() {
 
   const getBusyTimes = async (tMin, tMax) => {
     try {
-      console.log(tMin, tMax);
-      const response = await backendconn.post("event/freebusy", {
-        timeMin: tMin,
-        timeMax: tMax,
-      });
-      return response.data.response;
+      console.log(Date.now(), tMin, tMax);
+
+      if (typeof tMin !== "undefined" && typeof tMax !== "undefined") {
+        const response = await backendconn.post("event/freebusy", {
+          timeMin: tMin,
+          timeMax: tMax,
+        });
+        return response.data.response;
+      } else {
+        // Retornar um valor vazio ou tratar de outra forma quando tMin e tMax são undefined
+        return [];
+      }
     } catch (error) {
       console.error("Erro ao obter horários ocupados:", error);
       return [];
@@ -64,6 +70,7 @@ export default function EditEventModal() {
 
   const filterAvailableTimes = (occupiedTimes) => {
     const availableTimes = [];
+    console.log(dMin, dMax);
     const initTime = daySelected
       .startOf("day")
       .hour(0)
@@ -134,14 +141,14 @@ export default function EditEventModal() {
         const dMin = evtDate.startOf("day").toDate();
         const dMax = evtDate.endOf("day").toDate();
 
-        // Encontrando o serviço correspondente ao serviceId
+        // encontrando o serviço correspondente ao serviceId
         const serviceId = response.data.serviceId;
         const selectedService = services.find(
           (service) => service._id === serviceId
         );
         setDMin(dMin);
         setDMax(dMax);
-        // Verificando se o serviço foi encontrado
+        // verificando se o serviço foi encontrado
         if (selectedService) {
           const servName = selectedService.name;
           const servDuration = selectedService.duration;
@@ -168,7 +175,7 @@ export default function EditEventModal() {
             dMin: dMin,
             dMax: dMax,
           };
-          console.log("updatedEventData: ", updatedEventData);
+
           setEvents(updatedEventData);
           setEventDate(evtDate);
           setServiceInfo(servName);
@@ -181,9 +188,9 @@ export default function EditEventModal() {
         }
       });
 
-      // pegar horários disponíveis >>>>>>>>>>> CORRIGIR AQUI <<<<<<<<<<<<<<<<<<<<
+      // pegar horários disponíveis
       const loadAvailableTimes = async () => {
-        const formatedEventDate = dayjs(events.date);
+        /*const formatedEventDate = dayjs(events.date);*/
 
         // Define tMin e tMax usando a data do evento
         const tMin = dMin;
@@ -338,7 +345,7 @@ export default function EditEventModal() {
       });
     setTimeout(() => {
       setIsModalOpen(null);
-    }, 3000);
+    }, 2000);
 
     return;
   }

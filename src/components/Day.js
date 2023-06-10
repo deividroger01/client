@@ -161,11 +161,7 @@ export default function Day({ day, rowIdx }) {
                       {evt.serviceName}
                     </div>
                   ))
-              : dayjs(day).isAfter(dayjs(), "day") && (
-                  <span className="material-icons-outlined cursor-pointer text-green-600 mx-1 flex items-center justify-center">
-                    add
-                  </span>
-                )}
+              : dayjs(day).isAfter(dayjs(), "day") && ""}
           </>
         ) : (
           <div className="text-gray-600 text-sm">Carregando eventos...</div>

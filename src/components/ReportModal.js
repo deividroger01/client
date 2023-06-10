@@ -1,7 +1,15 @@
 import React, { useRef, useState, useEffect, useContext } from "react";
 import GlobalContext from "../context/GlobalContext";
 import dayjs from "dayjs";
+import isBetween from "dayjs/plugin/isBetween";
+import weekOfYear from "dayjs/plugin/weekOfYear";
+
 import backendconn from "../api/api";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+
+dayjs.extend(weekOfYear);
+dayjs.extend(isBetween);
 
 export default function ReportModal() {
   const contentRef = useRef(null);
@@ -9,6 +17,8 @@ export default function ReportModal() {
   const { showReportModal, setShowReportModal } = useContext(GlobalContext);
   const [events, setEvents] = useState([]);
   const [eventsLoaded, setEventsLoaded] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [filterMode, setFilterMode] = useState("day");
 
   // carregar eventos e nome do serviço
   useEffect(() => {
@@ -16,9 +26,6 @@ export default function ReportModal() {
       try {
         const response = await backendconn.get("/scheduling");
         const allEvents = response.data;
-
-        const currentDate = dayjs();
-        const currentMonth = currentDate.year();
 
         const eventsWithServiceName = await Promise.all(
           allEvents.map(async (event) => {
@@ -40,13 +47,51 @@ export default function ReportModal() {
           })
         );
 
-        // Filtrar apenas os eventos da semana atual
-        const eventsOfMonth = eventsWithServiceName.filter((event) => {
-          const eventDate = dayjs(event.startTime);
-          return eventDate.year() === currentMonth;
-        });
+        // filtrar os eventos com base na data selecionada e no modo de filtro
+        let filteredEvents = [];
+        if (filterMode === "day" && selectedDate) {
+          filteredEvents = eventsWithServiceName.filter((event) =>
+            dayjs(event.startTime).isSame(selectedDate, "day")
+          );
+        } else if (filterMode === "week") {
+          let weekDate = dayjs();
 
-        setEvents(eventsOfMonth);
+          const currentWeek = weekDate.week();
+          const startOfWeek = weekDate.startOf("week");
+          const endOfWeek = weekDate.endOf("week");
+
+          filteredEvents = eventsWithServiceName.filter((event) => {
+            const eventWeek = dayjs(event.startTime).week();
+            return (
+              eventWeek === currentWeek &&
+              dayjs(event.startTime).isBetween(
+                startOfWeek,
+                endOfWeek,
+                "day",
+                "[]"
+              )
+            );
+          });
+        } else if (filterMode === "all") {
+          filteredEvents = eventsWithServiceName;
+        } else if (filterMode === "next_week") {
+          const nextWeek = dayjs().add(1, "week");
+          const startOfWeek = nextWeek.startOf("week");
+          const endOfWeek = nextWeek.endOf("week");
+
+          filteredEvents = eventsWithServiceName.filter((event) =>
+            dayjs(event.startTime).isBetween(
+              startOfWeek,
+              endOfWeek,
+              "day",
+              "[]"
+            )
+          );
+        } else {
+          filteredEvents = eventsWithServiceName;
+        }
+
+        setEvents(filteredEvents);
         setEventsLoaded(true);
       } catch (error) {
         console.error(error);
@@ -67,7 +112,16 @@ export default function ReportModal() {
     if (showReportModal) {
       fetchEvents();
     }
-  }, [showReportModal]);
+  }, [showReportModal, selectedDate, filterMode]);
+
+  // atualizar a data selecionada
+  const handleDateChange = (date) => {
+    setSelectedDate(date);
+  };
+  // atualizar o modo de filtro
+  const handleFilterModeChange = (mode) => {
+    setFilterMode(mode);
+  };
 
   // ordernar os agendamentos por data e horario de inicio
   events.sort((a, b) => {
@@ -92,7 +146,7 @@ export default function ReportModal() {
       return;
     }
 
-    // Crie uma cópia do elemento sem o atributo ref
+    // criar uma cópia para impressão
     const printContents = tableElement.cloneNode(true);
     printContents.removeAttribute("ref");
 
@@ -132,6 +186,48 @@ export default function ReportModal() {
     return;
   };
 
+  // renderizar os eventos filtrados
+  const renderEvents = () => {
+    if (!eventsLoaded) {
+      return (
+        <tr>
+          <td colSpan="6">Carregando relatório...</td>
+        </tr>
+      );
+    }
+
+    if (events.length === 0) {
+      return (
+        <tr>
+          <td colSpan="6">Não há agendamentos.</td>
+        </tr>
+      );
+    }
+
+    return events.map((event) => (
+      <tr key={event._id}>
+        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+          {event.eDate}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">
+          {event.sTime} até {event.eTime}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+          {event.clientName}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">
+          {event.clientPhone}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">
+          {event.clientEmail}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+          {event.serviceName}
+        </td>
+      </tr>
+    ));
+  };
+
   return (
     <div
       className={`fixed z-50 top-0 left-0 w-full h-full overflow-auto bg-greensas bg-opacity-40 ${
@@ -154,7 +250,87 @@ export default function ReportModal() {
             </button>
           </div>
           <div className="px-4 py-3 overflow-x-auto">
-            <div className="sm:overflow-auto">
+            <div className="flex justify-center items-center">
+              <label
+                htmlFor="date-picker"
+                className="block mr-2 text-sm font-medium text-gray-700"
+              >
+                Selecionar data:
+              </label>
+              <div>
+                <DatePicker
+                  id="date-picker"
+                  selected={selectedDate}
+                  onChange={handleDateChange}
+                  dateFormat="dd/MM/yyyy"
+                  className="mt-1 focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                  placeholderText="DD/MM/YYYY"
+                />
+              </div>
+
+              <div>
+                <button
+                  className={`print-hidden w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-greensas hover:bg-greensas hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-greensas sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm ${
+                    filterMode === "day" ? "text-greensas" : "text-gray-700"
+                  }`}
+                  onClick={() => handleFilterModeChange("day")}
+                >
+                  Dia
+                </button>
+              </div>
+              <label
+                htmlFor="date-picker"
+                className="block ml-4 mr-2 text-sm font-medium text-gray-700"
+              >
+                ou
+              </label>
+              <div>
+                <button
+                  className={`print-hidden w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-greensas hover:bg-greensas hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-greensas sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm ${
+                    filterMode === "week" ? "text-greensas" : "text-gray-700"
+                  }`}
+                  onClick={() => handleFilterModeChange("week")}
+                >
+                  Semana Atual
+                </button>
+              </div>
+              <label
+                htmlFor="date-picker"
+                className="block ml-4 mr-2 text-sm font-medium text-gray-700"
+              >
+                ou
+              </label>
+              <div>
+                <button
+                  className={`print-hidden w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-greensas hover:bg-greensas hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-greensas sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm ${
+                    filterMode === "next_week"
+                      ? "text-greensas"
+                      : "text-gray-700"
+                  }`}
+                  onClick={() => handleFilterModeChange("next_week")}
+                >
+                  Próxima Semana
+                </button>
+              </div>
+
+              <label
+                htmlFor="date-picker"
+                className="block ml-4 mr-2 text-sm font-medium text-gray-700"
+              >
+                ou
+              </label>
+              <div>
+                <button
+                  className={`print-hidden w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-greensas hover:bg-greensas hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-greensas sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm ${
+                    filterMode === "all" ? "text-greensas" : "text-gray-700"
+                  }`}
+                  onClick={() => handleFilterModeChange("all")}
+                >
+                  Tudo
+                </button>
+              </div>
+            </div>
+            <div className="mt-4 sm:overflow-auto">
               <table
                 className="min-w-full divide-y divide-gray-200"
                 id="print-table"
@@ -201,46 +377,7 @@ export default function ReportModal() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {eventsLoaded ? (
-                    events.length > 0 ? (
-                      events.map((event) => (
-                        <tr key={event._id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {event.eDate}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">
-                            {event.sTime} até {event.eTime}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {event.clientName}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">
-                            {event.clientPhone}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500">
-                            {event.clientEmail}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {event.serviceName}
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td>
-                          <p className="text-gray-500 items-center">
-                            Não há agendamentos.
-                          </p>
-                        </td>
-                      </tr>
-                    )
-                  ) : (
-                    <tr>
-                      <td colSpan="8" className="text-center">
-                        Carregando relatório...
-                      </td>
-                    </tr>
-                  )}
+                  {renderEvents()}
                 </tbody>
               </table>
             </div>

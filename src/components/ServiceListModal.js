@@ -36,13 +36,13 @@ export default function ServiceListModal() {
   async function handleDelete(id) {
     backendconn
       .delete("/service/" + id)
-      .then(function (response) {
+      .then(function(response) {
         // handle success
         setIsMsgService([response.data]);
         setIsModalOpen();
         return;
       })
-      .catch(function (error) {
+      .catch(function(error) {
         // handle error
         setIsMsgService([error.response.data]);
         setIsModalOpen(null);

@@ -2,8 +2,14 @@ import React, { useState, useEffect, useContext } from "react";
 import GlobalContext from "../context/GlobalContext";
 import backendconn from "../api/api";
 import dayjs from "dayjs";
-var weekOfYear = require("dayjs/plugin/weekOfYear");
+import isBetween from "dayjs/plugin/isBetween";
+import weekOfYear from "dayjs/plugin/weekOfYear";
+
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+
 dayjs.extend(weekOfYear);
+dayjs.extend(isBetween);
 
 export default function EventsModal() {
   const {
@@ -14,6 +20,8 @@ export default function EventsModal() {
   } = useContext(GlobalContext);
   const [events, setEvents] = useState([]);
   const [eventsLoaded, setEventsLoaded] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [filterMode, setFilterMode] = useState("day");
 
   // carregar eventos e nome do serviço
   useEffect(() => {
@@ -21,9 +29,6 @@ export default function EventsModal() {
       try {
         const response = await backendconn.get("/scheduling");
         const allEvents = response.data;
-
-        const currentDate = dayjs();
-        const currentMonth = currentDate.year();
 
         const eventsWithServiceName = await Promise.all(
           allEvents.map(async (event) => {
@@ -45,13 +50,51 @@ export default function EventsModal() {
           })
         );
 
-        // Filtrar apenas os eventos da semana atual
-        const eventsOfMonth = eventsWithServiceName.filter((event) => {
-          const eventDate = dayjs(event.startTime);
-          return eventDate.year() === currentMonth;
-        });
+        // filtrar os eventos com base na data selecionada e no modo de filtro
+        let filteredEvents = [];
+        if (filterMode === "day" && selectedDate) {
+          filteredEvents = eventsWithServiceName.filter((event) =>
+            dayjs(event.startTime).isSame(selectedDate, "day")
+          );
+        } else if (filterMode === "week") {
+          let weekDate = dayjs();
 
-        setEvents(eventsOfMonth);
+          const currentWeek = weekDate.week();
+          const startOfWeek = weekDate.startOf("week");
+          const endOfWeek = weekDate.endOf("week");
+
+          filteredEvents = eventsWithServiceName.filter((event) => {
+            const eventWeek = dayjs(event.startTime).week();
+            return (
+              eventWeek === currentWeek &&
+              dayjs(event.startTime).isBetween(
+                startOfWeek,
+                endOfWeek,
+                "day",
+                "[]"
+              )
+            );
+          });
+        } else if (filterMode === "all") {
+          filteredEvents = eventsWithServiceName;
+        } else if (filterMode === "next_week") {
+          const nextWeek = dayjs().add(1, "week");
+          const startOfWeek = nextWeek.startOf("week");
+          const endOfWeek = nextWeek.endOf("week");
+
+          filteredEvents = eventsWithServiceName.filter((event) =>
+            dayjs(event.startTime).isBetween(
+              startOfWeek,
+              endOfWeek,
+              "day",
+              "[]"
+            )
+          );
+        } else {
+          filteredEvents = eventsWithServiceName;
+        }
+
+        setEvents(filteredEvents);
         setEventsLoaded(true);
       } catch (error) {
         console.error(error);
@@ -72,7 +115,33 @@ export default function EventsModal() {
     if (showEventsModal) {
       fetchEvents();
     }
-  }, [showEventsModal]);
+  }, [showEventsModal, selectedDate, filterMode]);
+
+  // atualizar a data selecionada
+  const handleDateChange = (date) => {
+    setSelectedDate(date);
+  };
+  // atualizar o modo de filtro
+  const handleFilterModeChange = (mode) => {
+    setFilterMode(mode);
+  };
+
+  // ordernar os agendamentos por data e horario de inicio
+  events.sort((a, b) => {
+    const dateA = a.startTime;
+    const dateB = b.startTime;
+
+    if (dateA < dateB) {
+      return -1; // a < b
+    } else if (dateA > dateB) {
+      return 1; // a > b
+    } else {
+      const timeA = parseInt(a.sTime.replace(":", ""));
+      const timeB = parseInt(b.sTime.replace(":", ""));
+
+      return timeA - timeB;
+    }
+  });
 
   // abrir a tela de edição de agendamentos
   function handleEdit(id) {
@@ -108,23 +177,6 @@ export default function EventsModal() {
       });
   }
 
-  // ordernar os agendamentos por data e horario de inicio
-  events.sort((a, b) => {
-    const dateA = a.startTime;
-    const dateB = b.startTime;
-
-    if (dateA < dateB) {
-      return -1; // a < b
-    } else if (dateA > dateB) {
-      return 1; // a > b
-    } else {
-      const timeA = parseInt(a.sTime.replace(":", ""));
-      const timeB = parseInt(b.sTime.replace(":", ""));
-
-      return timeA - timeB;
-    }
-  });
-
   // fechar modal
   const setIsModalOpen = () => {
     setShowEventsModal(false);
@@ -153,7 +205,87 @@ export default function EventsModal() {
             </button>
           </div>
           <div className="px-4 py-3 overflow-x-auto">
-            <div className="sm:overflow-auto">
+            <div className="flex justify-center items-center sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+              <label
+                htmlFor="date-picker"
+                className="block mr-2 text-sm font-medium text-gray-700 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+              >
+                Selecionar data:
+              </label>
+              <div>
+                <DatePicker
+                  id="date-picker"
+                  selected={selectedDate}
+                  onChange={handleDateChange}
+                  dateFormat="dd/MM/yyyy"
+                  className="mt-1 focus:ring-greensas focus:border-greensas block w-full border-gray-300 rounded-md sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                  placeholderText="DD/MM/YYYY"
+                />
+              </div>
+
+              <div>
+                <button
+                  className={`print-hidden w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-greensas hover:bg-greensas hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-greensas sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm ${
+                    filterMode === "day" ? "text-greensas" : "text-gray-700"
+                  }`}
+                  onClick={() => handleFilterModeChange("day")}
+                >
+                  Dia
+                </button>
+              </div>
+              <label
+                htmlFor="date-picker"
+                className="block ml-4 mr-2 text-sm font-medium text-gray-700"
+              >
+                ou
+              </label>
+              <div>
+                <button
+                  className={`print-hidden w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-greensas hover:bg-greensas hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-greensas sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm ${
+                    filterMode === "week" ? "text-greensas" : "text-gray-700"
+                  }`}
+                  onClick={() => handleFilterModeChange("week")}
+                >
+                  Semana Atual
+                </button>
+              </div>
+              <label
+                htmlFor="date-picker"
+                className="block ml-4 mr-2 text-sm font-medium text-gray-700"
+              >
+                ou
+              </label>
+              <div>
+                <button
+                  className={`print-hidden w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-greensas hover:bg-greensas hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-greensas sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm ${
+                    filterMode === "next_week"
+                      ? "text-greensas"
+                      : "text-gray-700"
+                  }`}
+                  onClick={() => handleFilterModeChange("next_week")}
+                >
+                  Próxima Semana
+                </button>
+              </div>
+
+              <label
+                htmlFor="date-picker"
+                className="block ml-4 mr-2 text-sm font-medium text-gray-700"
+              >
+                ou
+              </label>
+              <div>
+                <button
+                  className={`print-hidden w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-greensas hover:bg-greensas hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-greensas sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm ${
+                    filterMode === "all" ? "text-greensas" : "text-gray-700"
+                  }`}
+                  onClick={() => handleFilterModeChange("all")}
+                >
+                  Tudo
+                </button>
+              </div>
+            </div>
+            <div className="mt-4 sm:overflow-auto">
               <table
                 className="min-w-full divide-y divide-gray-200"
                 id="print-table"
