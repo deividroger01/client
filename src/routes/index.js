@@ -16,6 +16,7 @@ function RoutesApp() {
         withCredentials: true,
       });
       setUser(data.user);
+      console.log(("user:", user));
     } catch (error) {
       console.log(error);
     }
