@@ -12,8 +12,6 @@ function RoutesApp() {
     try {
       const url = `${process.env.REACT_APP_API_URL}/login/success`;
       const { data } = await axios.get(url, {
-        "Content-Type": "application/json; charset=utf-8",
-        timeout: 20000,
         withCredentials: true,
       });
       setUser(data.user);
